@@ -1,0 +1,3 @@
+- look for different type of tokenizers
+- look for the masking and change of hyper parameneters
+- look for different updated architectures
