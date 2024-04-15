@@ -92,7 +92,7 @@ class pre_process_data():
         tokenized['labels'] = labels
         return tokenized
 
-class score():
+class score_class():
     def __init__(self , config):
         self.config = config
     def get_location_predictions(self , preds , offset_mapping , sequence_ids , test = False):
@@ -250,7 +250,7 @@ def eval_model(model, dataloader, criterion):
         offsets = np.concatenate(offsets, axis=0)
         seq_ids = np.concatenate(seq_ids, axis=0)
         valid_labels = np.concatenate(valid_labels, axis=0)
-        score_obj = score(base_config)
+        score_obj = score_class(base_config)
         location_preds = score_obj.get_location_predictions(preds, offsets, seq_ids, test=False)
         score = score_obj.calculate_char_cv(location_preds, offsets, seq_ids, valid_labels)
 
@@ -304,3 +304,10 @@ if __name__ == '__main__' :
     time_elapsed = time.time() - since
     print('Training completed in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
+    pd.to_pickle(train_loss_data, "train_loss_data.pkl")
+    pd.to_pickle(valid_loss_data, "valid_loss_data.pkl")
+    plt.plot(train_loss_data, label="Training loss")
+    plt.plot(valid_loss_data, label="validation loss")
+    plt.legend(frameon=False)
+    score_df = pd.DataFrame.from_dict(score_data_list)
+    score_df.head()
