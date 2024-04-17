@@ -253,7 +253,7 @@ def eval_model(model, dataloader, criterion):
         score_obj = score_class(base_config)
         location_preds = score_obj.get_location_predictions(preds, offsets, seq_ids, test=False)
         score = score_obj.calculate_char_cv(location_preds, offsets, seq_ids, valid_labels)
-
+        logger.info(f"The score of the eval model is {score}")
         return sum(valid_loss)/len(valid_loss), score
 
 if __name__ == '__main__' :
