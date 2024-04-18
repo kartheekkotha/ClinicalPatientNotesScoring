@@ -19,6 +19,8 @@ from transformers import AutoModel, AutoTokenizer, RobertaTokenizerFast, Roberta
 import nltk
 from transformers import RobertaTokenizerFast
 import time
+from sklearn.model_selection import KFold
+from transformers import DebertaModel, DebertaTokenizerFast
 
 
 base_config = {
@@ -32,7 +34,7 @@ base_config = {
     "test_size": 0.2,
     "seed": 1268,
     "batch_size": 6,
-    "model_name": "roberta-base"
+    "model_name": "microsoft/deberta-base",
 }
 
 class prepare_data():
@@ -177,11 +179,11 @@ class CustomDataset(Dataset):
         sequence_ids = np.array(tokens['sequence_ids']).astype("float16")
         
         return input_ids, attention_mask, labels, offset_mapping, sequence_ids
-
+    
 class CustomModel(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.bert = RobertaModel.from_pretrained(config['model_name'])  # BERT model
+        self.deberta = DebertaModel.from_pretrained(config['model_name'])  # DeBERTa model
         self.dropout = nn.Dropout(p=config['dropout'])
         self.config = config
         self.fc1 = nn.Linear(768, 512)
@@ -189,7 +191,7 @@ class CustomModel(nn.Module):
         self.fc3 = nn.Linear(512, 1)
 
     def forward(self, input_ids, attention_mask):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        outputs = self.deberta(input_ids=input_ids, attention_mask=attention_mask)
         logits = self.fc1(outputs[0])
         logits = self.fc2(self.dropout(logits))
         logits = self.fc3(self.dropout(logits)).squeeze(-1)
@@ -259,16 +261,9 @@ def eval_model(model, dataloader, criterion):
 if __name__ == '__main__' :
     obj = prepare_data(base_config)
     train_df = obj.merge_data()
-    X_train , X_test = train_test_split(train_df, test_size= base_config['test_size'], random_state= base_config['seed'])
-    print(f"Train shape: {X_train.shape}")
-    print(f"Test shape: {X_test.shape}")
-    tokenizer = RobertaTokenizerFast.from_pretrained(base_config['model_name'])
-
-    training_data = CustomDataset(X_train, tokenizer, base_config)
-    train_dataloader = DataLoader(training_data, batch_size=base_config['batch_size'], shuffle=True)
-
-    testing_data = CustomDataset(X_test, tokenizer, base_config)
-    test_dataloader = DataLoader(testing_data, batch_size=base_config['batch_size'], shuffle=False)
+    tokenizer = DebertaTokenizerFast.from_pretrained(base_config['model_name'])
+    k_folds = 5
+    kf = KFold(n_splits=k_folds, shuffle=True, random_state=base_config['seed'])
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     print(f'The device is {DEVICE}')
     model = CustomModel(base_config).to(DEVICE)
@@ -281,33 +276,67 @@ if __name__ == '__main__' :
     since = time.time()
     epochs = 3
     best_loss = np.inf
+    fold_train_loss = []
+    fold_valid_loss = []
+    fold_scores = []
 
-    for i in range(epochs):
-        logger.info(f"Epoch: {i + 1}/{epochs}")
-        print("Epoch: {}/{}".format(i + 1, epochs))
-        # first train model
-        train_loss = train_model(model, train_dataloader, optimizer, criterion)
-        train_loss_data.append(train_loss)
-        print(f"Train loss: {train_loss}")
-        # evaluate model
-        valid_loss, score = eval_model(model, test_dataloader, criterion)
-        valid_loss_data.append(valid_loss)
-        score_data_list.append(score)
-        print(f"Valid loss: {valid_loss}")
-        print(f"Valid score: {score}")
-        
-        if valid_loss < best_loss:
-            best_loss = valid_loss
-            torch.save(model.state_dict(), "nbme_bert_v2.pth")
+    for fold, (train_index, test_index) in enumerate(kf.split(train_df)):
+        logger.info(f"Fold {fold + 1}/{k_folds}")
+        print(f"Fold {fold + 1}/{k_folds}")
+        X_train, X_test = train_df.iloc[train_index], train_df.iloc[test_index]
 
-        
-    time_elapsed = time.time() - since
-    print('Training completed in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
+        training_data = CustomDataset(X_train, tokenizer, base_config)
+        train_dataloader = DataLoader(training_data, batch_size=base_config['batch_size'], shuffle=True)
+
+        testing_data = CustomDataset(X_test, tokenizer, base_config)
+        test_dataloader = DataLoader(testing_data, batch_size=base_config['batch_size'], shuffle=False)
+
+        best_loss = np.inf
+
+        for epoch in range(epochs):
+            logger.info(f"Fold {fold + 1}/{k_folds} , Epoch: {epoch + 1}/{epochs}")
+            print("Epoch: {}/{}".format(epoch + 1, epochs))
+            # Train model
+            train_loss = train_model(model, train_dataloader, optimizer, criterion)
+            train_loss_data.append(train_loss)
+            print(f"Train loss: {train_loss}")
+            fold_train_loss.append(train_loss)
+            # Evaluate model
+            valid_loss, score = eval_model(model, test_dataloader, criterion)
+            valid_loss_data.append(valid_loss)
+            fold_valid_loss.append(valid_loss)
+            fold_scores.append(score)
+            score_data_list.append(score)
+            print(f"Valid loss: {valid_loss}")
+            print(f"Valid score: {score}")
+
+            if valid_loss < best_loss:
+                best_loss = valid_loss
+                torch.save(model.state_dict(), f"nbme_bert_fold{fold}_v2.pth")
+            with open(f"fold_{fold}_data.txt", "w") as file:
+                file.write(f"Train Loss: {fold_train_loss}\n")
+                file.write(f"Valid Loss: {fold_valid_loss}\n")
+                file.write(f"Scores: {fold_scores}\n")
+
+            # Clear fold data lists for next iteration
+            fold_train_loss.clear()
+            fold_valid_loss.clear()
+            fold_scores.clear()
+
+    # After all folds are done, calculate average scores if needed
+    avg_train_loss = sum(train_loss_data) / len(train_loss_data)
+    avg_valid_loss = sum(valid_loss_data) / len(valid_loss_data)
+    print(f"Average Train Loss: {avg_train_loss}")
+    print(f"Average Valid Loss: {avg_valid_loss}")
+
+    # Plotting
     pd.to_pickle(train_loss_data, "train_loss_data.pkl")
     pd.to_pickle(valid_loss_data, "valid_loss_data.pkl")
     plt.plot(train_loss_data, label="Training loss")
-    plt.plot(valid_loss_data, label="validation loss")
+    plt.plot(valid_loss_data, label="Validation loss")
     plt.legend(frameon=False)
+    plt.show()
+
+    # Convert score data to dataframe if needed
     score_df = pd.DataFrame.from_dict(score_data_list)
     score_df.head()
