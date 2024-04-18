@@ -20,5 +20,5 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-*.log
+running_logs.log
 
