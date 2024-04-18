@@ -305,6 +305,7 @@ if __name__ == '__main__' :
             valid_loss, score = eval_model(model, test_dataloader, criterion)
             valid_loss_data.append(valid_loss)
             fold_valid_loss.append(valid_loss)
+            fold_scores.append(score)
             score_data_list.append(score)
             print(f"Valid loss: {valid_loss}")
             print(f"Valid score: {score}")
