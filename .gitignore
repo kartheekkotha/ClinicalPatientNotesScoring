@@ -21,4 +21,5 @@ share/python-wheels/
 *.egg
 MANIFEST
 running_logs.log
+*.pth
 
