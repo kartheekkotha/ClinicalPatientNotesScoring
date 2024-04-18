@@ -31,7 +31,7 @@ base_config = {
     "lr": 1e-5,
     "test_size": 0.2,
     "seed": 1268,
-    "batch_size": 8,
+    "batch_size": 6,
     "model_name": "microsoft/deberta-base"
 }
 
