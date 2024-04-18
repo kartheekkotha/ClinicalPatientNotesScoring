@@ -276,8 +276,12 @@ if __name__ == '__main__' :
     since = time.time()
     epochs = 3
     best_loss = np.inf
+    fold_train_loss = []
+    fold_valid_loss = []
+    fold_scores = []
 
     for fold, (train_index, test_index) in enumerate(kf.split(train_df)):
+        logger.info(f"Fold {fold + 1}/{k_folds}")
         print(f"Fold {fold + 1}/{k_folds}")
         X_train, X_test = train_df.iloc[train_index], train_df.iloc[test_index]
 
@@ -290,16 +294,17 @@ if __name__ == '__main__' :
         best_loss = np.inf
 
         for epoch in range(epochs):
-            logger.info(f"Epoch: {epoch + 1}/{epochs}")
+            logger.info(f"Fold {fold + 1}/{k_folds} , Epoch: {epoch + 1}/{epochs}")
             print("Epoch: {}/{}".format(epoch + 1, epochs))
             # Train model
             train_loss = train_model(model, train_dataloader, optimizer, criterion)
             train_loss_data.append(train_loss)
             print(f"Train loss: {train_loss}")
-
+            fold_train_loss.append(train_loss)
             # Evaluate model
             valid_loss, score = eval_model(model, test_dataloader, criterion)
             valid_loss_data.append(valid_loss)
+            fold_valid_loss.append(valid_loss)
             score_data_list.append(score)
             print(f"Valid loss: {valid_loss}")
             print(f"Valid score: {score}")
@@ -307,6 +312,15 @@ if __name__ == '__main__' :
             if valid_loss < best_loss:
                 best_loss = valid_loss
                 torch.save(model.state_dict(), f"nbme_bert_fold{fold}_v2.pth")
+            with open(f"fold_{fold}_data.txt", "w") as file:
+                file.write(f"Train Loss: {fold_train_loss}\n")
+                file.write(f"Valid Loss: {fold_valid_loss}\n")
+                file.write(f"Scores: {fold_scores}\n")
+
+            # Clear fold data lists for next iteration
+            fold_train_loss.clear()
+            fold_valid_loss.clear()
+            fold_scores.clear()
 
     # After all folds are done, calculate average scores if needed
     avg_train_loss = sum(train_loss_data) / len(train_loss_data)
