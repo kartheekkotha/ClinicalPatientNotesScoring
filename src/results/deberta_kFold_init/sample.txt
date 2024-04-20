@@ -1,0 +1,4 @@
+Fold - 3 epoch - 3
+[2024-04-18 19:11:49,248: INFO: deberta_kFold_initial: The score of the eval model is {'Accuracy': 0.9984604628225592, 'precision': 0.9423440073928241, 'recall': 0.9159571975318285, 'f1': 0.9289632636894742}]
+Valid loss: 0.021090689687320464
+Valid score: {'Accuracy': 0.9984604628225592, 'precision': 0.9423440073928241, 'recall': 0.9159571975318285, 'f1': 0.9289632636894742}

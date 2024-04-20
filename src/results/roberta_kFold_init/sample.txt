@@ -1,4 +1,4 @@
-
+ran for 4 folds 3 epochs each
 
 Fold 4
 [2024-04-18 16:35:32,587: INFO: roberta_kFold_initial: The score of the eval model is {'Accuracy': 0.9970982263229392, 'precision': 0.8693389554588882, 'recall': 0.9453263298412606, 'f1': 0.9057416933129431}]
