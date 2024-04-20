@@ -1,4 +1,5 @@
 import sys
+sys.path.append('../../')
 from logHelper import logger
 #Import the necessary modules
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ from sklearn.model_selection import KFold
 
 
 base_config = {
-    "Base_data_path": "../data/nbme-score-clinical-patient-notes",
+    "Base_data_path": "../../../data/nbme-score-clinical-patient-notes",
     "max_length": 416,
     "padding": "max_length",
     "return_offsets_mapping": True,
@@ -34,7 +35,7 @@ base_config = {
     "test_size": 0.2,
     "seed": 1268,
     "batch_size": 8,
-    "model_name": "roberta-base"
+    "model_name": "emilyalsentzer/Bio_ClinicalBERT",
 }
 
 class prepare_data():
@@ -183,7 +184,7 @@ class CustomDataset(Dataset):
 class CustomModel(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.bert = RobertaModel.from_pretrained(config['model_name'])  # BERT model
+        self.bert = AutoModel.from_pretrained(config['model_name'])
         self.dropout = nn.Dropout(p=config['dropout'])
         self.config = config
         self.fc1 = nn.Linear(768, 512)
@@ -261,8 +262,8 @@ def eval_model(model, dataloader, criterion):
 if __name__ == '__main__' :
     obj = prepare_data(base_config)
     train_df = obj.merge_data()
-    tokenizer = RobertaTokenizerFast.from_pretrained(base_config['model_name'])
-    k_folds = 5
+    tokenizer = AutoTokenizer.from_pretrained(base_config['model_name'])    
+    k_folds = 3
     kf = KFold(n_splits=k_folds, shuffle=True, random_state=base_config['seed'])
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     print(f'The device is {DEVICE}')

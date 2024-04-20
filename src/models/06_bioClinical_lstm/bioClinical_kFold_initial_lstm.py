@@ -1,4 +1,5 @@
 import sys
+sys.path.append('../../')
 from logHelper import logger
 #Import the necessary modules
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ from sklearn.model_selection import KFold
 
 
 base_config = {
-    "Base_data_path": "../data/nbme-score-clinical-patient-notes",
+    "Base_data_path": "../../../data/nbme-score-clinical-patient-notes",
     "max_length": 416,
     "padding": "max_length",
     "return_offsets_mapping": True,
@@ -179,20 +180,23 @@ class CustomDataset(Dataset):
         sequence_ids = np.array(tokens['sequence_ids']).astype("float16")
         
         return input_ids, attention_mask, labels, offset_mapping, sequence_ids
-
+    
 class CustomModel(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.bert = AutoModel.from_pretrained(config['model_name'])
+        self.lstm = nn.LSTM(input_size=768, hidden_size=256, num_layers=1, batch_first=True , bidirectional=True)  # LSTM layer
         self.dropout = nn.Dropout(p=config['dropout'])
         self.config = config
-        self.fc1 = nn.Linear(768, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 1)
+        self.fc1 = nn.Linear(512, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 1)
 
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        logits = self.fc1(outputs[0])
+        sequence_outputs = outputs.last_hidden_state
+        outputs , _ = self.lstm(sequence_outputs)
+        logits = self.fc1(outputs)
         logits = self.fc2(self.dropout(logits))
         logits = self.fc3(self.dropout(logits)).squeeze(-1)
         return logits

@@ -1,4 +1,5 @@
 import sys
+sys.path.append('../../')
 from logHelper import logger
 #Import the necessary modules
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ from transformers import DebertaModel, DebertaTokenizerFast
 
 
 base_config = {
-    "Base_data_path": "../data/nbme-score-clinical-patient-notes",
+    "Base_data_path": "../../../data/nbme-score-clinical-patient-notes",
     "max_length": 416,
     "padding": "max_length",
     "return_offsets_mapping": True,

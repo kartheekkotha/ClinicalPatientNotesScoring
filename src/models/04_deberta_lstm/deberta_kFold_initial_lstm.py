@@ -1,4 +1,5 @@
 import sys
+sys.path.append('../../')
 from logHelper import logger
 #Import the necessary modules
 import matplotlib.pyplot as plt
@@ -20,11 +21,12 @@ import nltk
 from transformers import RobertaTokenizerFast
 import time
 from sklearn.model_selection import KFold
+from transformers import DebertaModel, DebertaTokenizerFast
 
 
 
 base_config = {
-    "Base_data_path": "../data/nbme-score-clinical-patient-notes",
+    "Base_data_path": "../../../data/nbme-score-clinical-patient-notes",
     "max_length": 416,
     "padding": "max_length",
     "return_offsets_mapping": True,
@@ -34,7 +36,7 @@ base_config = {
     "test_size": 0.2,
     "seed": 1268,
     "batch_size": 8,
-    "model_name": "emilyalsentzer/Bio_ClinicalBERT",
+    "model_name": "microsoft/deberta-base"
 }
 
 class prepare_data():
@@ -183,7 +185,7 @@ class CustomDataset(Dataset):
 class CustomModel(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.bert = AutoModel.from_pretrained(config['model_name'])
+        self.deberta = DebertaModel.from_pretrained(config['model_name'])  # DeBERTa model
         self.lstm = nn.LSTM(input_size=768, hidden_size=256, num_layers=1, batch_first=True , bidirectional=True)  # LSTM layer
         self.dropout = nn.Dropout(p=config['dropout'])
         self.config = config
@@ -192,7 +194,7 @@ class CustomModel(nn.Module):
         self.fc3 = nn.Linear(256, 1)
 
     def forward(self, input_ids, attention_mask):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        outputs = self.deberta(input_ids=input_ids, attention_mask=attention_mask)
         sequence_outputs = outputs.last_hidden_state
         outputs , _ = self.lstm(sequence_outputs)
         logits = self.fc1(outputs)
@@ -264,7 +266,7 @@ def eval_model(model, dataloader, criterion):
 if __name__ == '__main__' :
     obj = prepare_data(base_config)
     train_df = obj.merge_data()
-    tokenizer = AutoTokenizer.from_pretrained(base_config['model_name'])    
+    tokenizer = DebertaTokenizerFast.from_pretrained(base_config['model_name'])    
     k_folds = 3
     kf = KFold(n_splits=k_folds, shuffle=True, random_state=base_config['seed'])
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
